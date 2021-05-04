@@ -5,7 +5,7 @@ import matplotlib
 
 sns.set()
 
-def plot3imgs(original_img, degrad_img, restored_img, suptitle, figsize = (16, 10)):
+def plot3imgs(original_img, degrad_img, restored_img, suptitle = 'Images', figsize = (16, 10)):
 	fig, ax = plt.subplots(nrows=1, ncols=3, figsize=figsize)
 	plt.gray()
 

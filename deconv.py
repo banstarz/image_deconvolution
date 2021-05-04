@@ -6,19 +6,62 @@ import seaborn as sns
 
 sns.set()
 
-def richardson_lucy(image, psf, init = 'ones', iterations = 30):
-	latent_est = np.ones(image.shape)*0.5
-	
-	psf_hat = psf[::-1, ::-1]
-	for i in range(iterations):
-	    est_conv      = conv2(latent_est,psf,'same')
-	    relative_blur = image/est_conv
-	    error_est     = conv2(relative_blur,psf_hat,'same')
-	    latent_est    = latent_est * error_est
-	    yield np.clip(latent_est, 0, 1)
+class richardson_lucy:
+	def __init__(self, image, psf):
+		self.image = image
+		self.psf = psf
+		self.latent_est = np.ones(image.shape) * 0.5
+		self.psf_hat = self.psf[::-1, ::-1]
+		self.iterations = None
+
+	def recover_image(self, iterations = None):
+		if not iterations and not self.iterations:
+			print('Не указано количество итераций')
+			return
+
+		if not iterations:
+			iterations = self.iterations
+
+		for i in range(iterations):
+			est_conv = conv2(self.latent_est, self.psf, 'same')
+			relative_blur = self.image / est_conv
+			error_est = conv2(relative_blur, self.psf_hat, 'same')
+			self.latent_est = self.latent_est * error_est
+			yield np.clip(self.latent_est, 0, 1)
+
+	def optimize(self, original, metric, step_after = 3, **kwargs):
+		rich = self.recover_image(10000)
+		self.step = []
+		self.metric_val = []
+		flag = 0
+		current_metric_val = 42
+		for i, est in enumerate(rich):
+			if flag >= step_after:
+				return
+
+			self.step.append(i)
+			current_metric_val = metric(original, est, **kwargs)
+
+			if len(self.metric_val):
+				if current_metric_val > self.metric_val[-1]:
+					flag += 1
+				else:
+					flag = 0
+
+			self.metric_val.append(current_metric_val)
+			if current_metric_val == min(self.metric_val):
+				self.best_est = est
+				self.best_metric_val = current_metric_val
+				self.iterations = i
+
+	def debug_graph(self):
+
+		plt.plot(self.step, self.metric_val)
+		print(np.argmin(self.metric_val))
+
 
 class wiener:
-	def __init__ (self, image, psf, p=0.1):
+	def __init__ (self, image, psf):
 		self.image = np.copy(image)
 		self.psf = psf
 		self.psf1 = np.zeros(self.image.shape)
@@ -36,16 +79,13 @@ class wiener:
 		latent_est = ifft2(latent_est_ft)
 		return np.clip(np.real(latent_est), 0, 1)
 
-	def calc_error(self, original, metric, est, **kwargs):
-		return metric(original, est, **kwargs)
-
 	def optimize(self, original, metric, eps = 0.0001, iterations = 20, **kwargs):
 		p_l = 0
 		p_r = 1000
 		for i in range(iterations):
 			p_c = (p_l + p_r) / 2
-			err_1 = self.calc_error(original, metric, self.recover_image(p_c), **kwargs)
-			err_2 = self.calc_error(original, metric, self.recover_image(p_c+eps), **kwargs)
+			err_1 = metric(original, metric, self.recover_image(p_c), **kwargs)
+			err_2 = metric(original, metric, self.recover_image(p_c+eps), **kwargs)
 			if err_1 > err_2:
 				p_l = p_c
 			else:
@@ -58,13 +98,13 @@ class wiener:
 		y = []
 		for i in range(irange[0], irange[1]):
 			x.append(i * step)
-			y.append(self.calc_error(original, metric, self.recover_image(i * step), **kwargs))
+			y.append(self.metric(original, metric, self.recover_image(i * step), **kwargs))
 
 		plt.plot(x, y)
 		print(np.argmin(y)*step)
 
 class tykhonov:
-	def __init__ (self, image, psf, gamma=0.1):
+	def __init__ (self, image, psf):
 		self.image = np.copy(image)
 		self.psf = psf
 		self.psf1 = np.zeros(self.image.shape)
@@ -87,16 +127,13 @@ class tykhonov:
 		latent_est = ifft2(latent_est_ft)
 		return np.clip(np.real(latent_est), 0, 1)
 
-	def calc_error(self, original, metric, est, **kwargs):
-		return metric(original, est, **kwargs)
-
 	def optimize(self, original, metric, eps = 0.0001, iterations = 20, **kwargs):
 		gamma_l = 0
 		gamma_r = 1000
 		for i in range(iterations):
 			gamma_c = (gamma_l + gamma_r) / 2
-			err_1 = self.calc_error(original, metric, self.recover_image(gamma_c), **kwargs)
-			err_2 = self.calc_error(original, metric, self.recover_image(gamma_c+eps), **kwargs)
+			err_1 = self.metric(original, metric, self.recover_image(gamma_c), **kwargs)
+			err_2 = self.metric(original, metric, self.recover_image(gamma_c+eps), **kwargs)
 			if err_1 > err_2:
 				gamma_l = gamma_c
 			else:
@@ -109,7 +146,7 @@ class tykhonov:
 		y = []
 		for i in range(irange[0], irange[1]):
 			x.append(i * step)
-			y.append(self.calc_error(original, metric, self.recover_image(i * step), **kwargs))
+			y.append(self.metric(original, metric, self.recover_image(i * step), **kwargs))
 
 		plt.plot(x, y)
 		print(np.argmin(y)*step)

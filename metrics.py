@@ -44,7 +44,7 @@ def histogram(orig, degrad, n = None):
 	else:
 		hist1, _ = np.histogram(orig, bins=255, range=(0, 1))
 		hist2, _ = np.histogram(degrad, bins=255, range=(0, 1))
-	return (np.abs(np.asarray(hist1) - np.asarray(hist2))).mean()
+	return ((np.asarray(hist1) - np.asarray(hist2))**2).mean()
 
 def Grad(orig):
 	pass
