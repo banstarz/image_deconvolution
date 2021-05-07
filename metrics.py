@@ -2,7 +2,7 @@ import numpy as np
 import time
 from skimage.metrics import structural_similarity as struct_sim
 
-def MSE(orig, degrad, n = None):
+def mse(orig, degrad, n = None):
 	if n:
 		s = orig.shape
 		cx = s[0] // 2
@@ -11,7 +11,7 @@ def MSE(orig, degrad, n = None):
 	else:
 		return ((orig-np.real(degrad))**2).mean()
 
-def MAE(orig, degrad, n = None):
+def mae(orig, degrad, n = None):
 	if n:
 		s = orig.shape
 		cx = s[0] // 2
@@ -39,13 +39,14 @@ def histogram(orig, degrad, n = None):
 		s = orig.shape
 		cx = s[0] // 2
 		cy = s[1] // 2
-		hist1, _ = np.histogram(orig[cx - n:cx + n, cy - n:cy + n], bins=255, range=(0, 1))
-		hist2, _ = np.histogram(degrad[cx - n:cx + n, cy - n:cy + n], bins=255, range=(0, 1))
+		hist1, _ = np.histogram(orig[cx - n:cx + n, cy - n:cy + n], bins=256, range=(0, 1))
+		hist2, _ = np.histogram(degrad[cx - n:cx + n, cy - n:cy + n], bins=256, range=(0, 1))
 	else:
 		hist1, _ = np.histogram(orig, bins=255, range=(0, 1))
 		hist2, _ = np.histogram(degrad, bins=255, range=(0, 1))
-	return ((np.asarray(hist1) - np.asarray(hist2))**2).mean()
+		hist1, hist2 = np.asarray(hist1), np.asarray(hist2)
+	return (np.abs(hist1 - hist2)/(orig.shape[0]*orig.shape[1])).mean() * 256
 
-def Grad(orig):
+def gradient_histogram(orig):
 	pass
 
